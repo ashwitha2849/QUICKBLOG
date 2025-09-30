@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { assets, blog_data, comments_data } from '../assets/assets'
 import Navbar from '../components/Navbar'
@@ -10,67 +10,80 @@ import toast from 'react-hot-toast'
 
 const Blog = () => {
   const { id } = useParams()
-
-  const {axios}= useAppContext()
+  const { axios } = useAppContext()
 
   const [data, setData] = useState(null)
   const [comments, setComments] = useState([])
   const [name, setName] = useState('')
   const [content, setContent] = useState('')
 
+  // ---------------------------------------------
+  // Memoized Functions using useCallback
+  // ---------------------------------------------
 
+  const fetchBlogdata = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`/api/blog/${id}`)
+      data.success ? setData(data.blog) : toast.error(data.message)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }, [axios, id]) // Dependencies: axios and id
 
+  const fetchComments = useCallback(async () => {
+    try {
+      // NOTE: Using POST for fetching comments is less conventional than GET, 
+      // but keeping it as in your original code.
+      const { data } = await axios.post('/api/blog/comments', { blogId: id }) 
+      if (data.success) {
+        setComments(data.comments)
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  }, [axios, id]) // Dependencies: axios and id
 
-  const fetchBlogdata = async () => {
-   try{
-    const{data}=await axios.get(`/api/blog/${id}`)
-    data.success ? setData(data.blog): toast.error(data.message)
-   }catch (error) {
-    toast.error(error.message)
-   }
-  }
-
-  const fetchComments = async () => {
-    try{
-      const{data}=await axios.post('/api/blog/comments',{blogId:id})
-    if(data.success){
-      setComments(data.comments)
-    }else{
-      toast.error(data.message);
-    }   
-   } catch (error){
-    toast.error(error.message);
-   }
-    
-  }
-
-  const addComment = async (e)=>{
+  const addComment = async (e) => {
     e.preventDefault();
-    try{
-      const { data }=await axios.post('/app/blog/add-comment',{blog: id, name, content});
-      if (data.success){
+    try {
+      // 🚀 FIX: Corrected API endpoint from /app/blog/add-comment to /api/blog/add-comment
+      const { data } = await axios.post('/api/blog/add-comment', { blog: id, name, content }); 
+      if (data.success) {
         toast.success(data.message)
         setName('')
         setContent('')
-      }else{
+        // 🌟 Improvement: Refresh comments list immediately
+        fetchComments(); 
+      } else {
         toast.error(data.message);
       }
     } catch (error) {
       toast.error(error.message);
     }
   }
+
+  // ---------------------------------------------
+  // useEffect Hook
+  // ---------------------------------------------
+
   useEffect(() => {
     fetchBlogdata()
     fetchComments()
-  }, [id])
+  }, [fetchBlogdata, fetchComments]) // Dependencies: memoized fetch functions
 
+  // ---------------------------------------------
+  // Render
+  // ---------------------------------------------
+  
   return data ? (
     <div className='relative'>
       {/* background */}
-      <img 
-        src={assets.gradientBackground} 
-        alt="" 
-        className="absolute -top-12 -z-10 opacity-50 w-full h-full object-cover" 
+      <img
+        src={assets.gradientBackground}
+        alt=""
+        className="absolute -top-12 -z-10 opacity-50 w-full h-full object-cover"
       />
 
       <Navbar />
@@ -123,32 +136,32 @@ const Blog = () => {
         <div className="max-w-3xl mx-auto">
           <p className="font-semibold mb-4">Add your comment</p>
           <form onSubmit={addComment} className='flex flex-col items-start gap-4 max-w-lg'>
-           <input onChange={(e)=> setName(e.target.value)} value={name}
-            type="text" placeholder='Name' required className='w-full
-           p-2 border border-gray-300 rounded outline-none' />
+            <input onChange={(e) => setName(e.target.value)} value={name}
+              type="text" placeholder='Name' required className='w-full
+            p-2 border border-gray-300 rounded outline-none' />
 
-           <textarea onChange={(e)=> setContent(e.target.value)} value=
-           {content} placeholder='Comment' className='w-full p-2 border
-           border-gray-300 rounded outline-none h-48' required></textarea>
+            <textarea onChange={(e) => setContent(e.target.value)} value=
+              {content} placeholder='Comment' className='w-full p-2 border
+            border-gray-300 rounded outline-none h-48' required></textarea>
 
-           <button type="submit" className='bg-primary text-white rounded p-2 px-8 hover:scale-102 
-           transition-all cursor-pointer'>Submit</button>
+            <button type="submit" className='bg-primary text-white rounded p-2 px-8 hover:scale-102 
+            transition-all cursor-pointer'>Submit</button>
           </form>
         </div>
         {/**share buttons */}
         <div className='my-24 max-w-3x1 mx-auto'>
-         <p className='font=semibold my-4'>Share this article on social media</p> 
-         <div className='flex'>
-          <img src={assets.facebook_icon} width={50}alt="" />
-          <img src={assets.twitter_icon} width={50}alt="" />
-          <img src={assets.googleplus_icon} width={50}alt="" />
+          <p className='font=semibold my-4'>Share this article on social media</p>
+          <div className='flex'>
+            <img src={assets.facebook_icon} width={50} alt="" />
+            <img src={assets.twitter_icon} width={50} alt="" />
+            <img src={assets.googleplus_icon} width={50} alt="" />
 
-         </div>
+          </div>
         </div>
       </div>
-      <Footer/>
+      <Footer />
     </div>
-  ) : <Loader/>
+  ) : <Loader />
 }
 
 export default Blog
